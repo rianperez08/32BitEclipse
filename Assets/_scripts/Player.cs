@@ -6,7 +6,9 @@ public enum PlayerState
 {
     Attack,
     ChargeAttack,
-    Invulnerable
+    Parry,
+    Invulnerable,
+    GetDamaged
 }
 
 public abstract class Player : MonoBehaviour
@@ -15,14 +17,6 @@ public abstract class Player : MonoBehaviour
     public int health;
     public int normal_damage;
     public int charged_damage;
-
-    [Header("Player Combaat")]
-    public float attack_cooldown;
-    public float attack_duration;
-    public float charge_duration;
-    public float invul_duration;
-
-
     public void UpdatePlayerState(PlayerState playerState)
     {
         switch (playerState)
@@ -33,19 +27,26 @@ public abstract class Player : MonoBehaviour
             case PlayerState.ChargeAttack:
                 StartCoroutine(ChargeAttack());
                 break;
+            case PlayerState.Parry:
+                UpdatePlayerState(PlayerState.Invulnerable);
+                break;
         }
     }
 
+    protected virtual IEnumerator Invulnerable()
+    {
+        return null;
+    }
     protected virtual IEnumerator Attack()
     {
-        yield return new WaitForSeconds(attack_duration);
+        return null;
     }
     protected virtual IEnumerator ChargeAttack()
     {
-        yield return new WaitForSeconds(charge_duration);
+        return null;
     }
-    protected virtual void Attack(int additional_damage)
+    protected virtual IEnumerator Parry()
     {
-
+        return null;
     }
 }

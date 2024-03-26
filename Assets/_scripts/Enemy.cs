@@ -4,7 +4,7 @@ using UnityEngine;
 
 public enum EnemyState
 {
-    Charging,
+    Invulnerable,
     Attack
 }
 public abstract class Enemy : MonoBehaviour
@@ -13,29 +13,20 @@ public abstract class Enemy : MonoBehaviour
     public int health;
     public int normal_damage;
     public int collision_damage;
-    [Header("Enemy Combat")]
-    public float attack_cooldown;
-    public float attack_duration;
-    public float charge_duration;
 
+    [Header("Enemy Stuff")]
+    public float invulnerable_time;
     public void UpdateEnemyState(EnemyState enemyState)
     {
         switch (enemyState)
         {
-            case EnemyState.Attack:
-                StartCoroutine(Attack());
-                break;
-            case EnemyState.Charging:
-                StartCoroutine(Charging());
+            case EnemyState.Invulnerable:
+                StartCoroutine(Invulnerable());
                 break;
         }
     }
-    protected virtual IEnumerator Charging()
+    protected virtual IEnumerator Invulnerable()
     {
-        yield return new WaitForSeconds(charge_duration);
-    }
-    protected virtual IEnumerator Attack()
-    {
-        yield return new WaitForSeconds(attack_duration);
+        yield return new WaitForSeconds(invulnerable_time);
     }
 }
