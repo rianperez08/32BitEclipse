@@ -18,9 +18,19 @@ public class BullethellSpawner : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+
+    }
+
+    public void Fire()
+    {
+        FireBullets();
+    }
+
+    void AutomaticFire()
+    {
         time_before_firing -= Time.deltaTime;
 
-        if(time_before_firing <= 0)
+        if (time_before_firing <= 0)
         {
             FireBullets();
             time_before_firing = rate_of_fire;
@@ -37,7 +47,7 @@ public class BullethellSpawner : MonoBehaviour
     private void FireBullets()
     {
         Instantiate(bullet, transform.position, transform.rotation);
-        Quaternion secondRotation = transform.rotation * Quaternion.Euler(0, 0, 180);
+        Quaternion secondRotation = transform.rotation * Quaternion.Euler(0, 0, 90);
         Instantiate(bullet, transform.position, secondRotation);
     }
 }

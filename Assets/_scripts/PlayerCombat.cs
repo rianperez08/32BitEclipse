@@ -73,7 +73,6 @@ public class PlayerCombat : Player
     private void FixedUpdate()
     {
         Vector2 lookDir = look_action.ReadValue<Vector2>();
-        Debug.Log($"move: {lookDir}");
     }
 
 
