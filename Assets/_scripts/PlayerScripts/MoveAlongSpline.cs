@@ -17,13 +17,15 @@ public class MoveAlongSpline : MonoBehaviour
     private float jumpStartTime;
     private Vector3 jumpStartPosition;
     private float jumpStartSpeed;
+    private Rigidbody rb;
 
     private void Start()
     {
         splineLength = spline.CalculateLength();
+        rb = GetComponent<Rigidbody>();
     }
 
-    private void Update()
+    private void FixedUpdate()
     {
         // Get the input axes
         float horizontal = Input.GetAxis("Horizontal");
@@ -32,7 +34,7 @@ public class MoveAlongSpline : MonoBehaviour
         float currentSpeed = Mathf.Clamp(speed * -horizontal, -maxSpeed, maxSpeed);
 
         // Update the distance percentage based on the current speed
-        distancePercentage += currentSpeed * Time.deltaTime / splineLength;
+        distancePercentage += currentSpeed * Time.fixedDeltaTime / splineLength;
 
         // Wrap the distance percentage if it goes beyond 0 or 1
         distancePercentage = Mathf.Repeat(distancePercentage, 1f);
@@ -40,43 +42,43 @@ public class MoveAlongSpline : MonoBehaviour
         // Evaluate the position on the spline based on the distance percentage
         Vector3 currentPosition = spline.EvaluatePosition(distancePercentage);
 
+        // Evaluate the tangent direction on the spline based on the distance percentage
+        Vector3 direction = spline.EvaluateTangent(distancePercentage);
+
+        // Set the Rigidbody's velocity based on the current speed and direction
+        rb.velocity = direction.normalized * currentSpeed;
+
+        // Rotate the Rigidbody to align with the spline's direction
+        Quaternion targetRotation = Quaternion.LookRotation(direction, transform.up);
+        rb.MoveRotation(targetRotation);
+
         // Check for jump input
         if (Input.GetKeyDown(KeyCode.Space) && !isJumping)
         {
             isJumping = true;
             jumpStartTime = Time.time;
-            jumpStartPosition = currentPosition;
+            jumpStartPosition = rb.position;
             jumpStartSpeed = currentSpeed;
         }
 
-        // Apply jump
+        // Handle jumping
         if (isJumping)
         {
-            float jumpTime = Time.time - jumpStartTime;
-            float normalizedJumpTime = Mathf.Clamp01(jumpTime / jumpDuration);
-            float jumpHeight = Mathf.Sin(normalizedJumpTime * Mathf.PI) * this.jumpHeight;
+            float jumpProgress = (Time.time - jumpStartTime) / jumpDuration;
 
-            // Calculate the target position on the spline based on the jump progress
-            float jumpDistancePercentage = Mathf.Lerp(distancePercentage, distancePercentage + jumpStartSpeed * Time.deltaTime / splineLength, normalizedJumpTime);
-            Vector3 targetPosition = spline.EvaluatePosition(jumpDistancePercentage);
+            if (jumpProgress < 1f)
+            {
+                // Calculate the jump offset
+                Vector3 jumpOffset = Vector3.up * Mathf.Sin(jumpProgress * Mathf.PI) * jumpHeight;
 
-            // Update the player position with the jump height and spline position
-            transform.position = targetPosition + Vector3.up * jumpHeight;
-
-            if (jumpTime >= jumpDuration)
+                // Maintain the running momentum during the jump
+                Vector3 runningVelocity = direction.normalized * jumpStartSpeed;
+                rb.velocity = runningVelocity + Vector3.up * Mathf.Cos(jumpProgress * Mathf.PI) * jumpHeight / jumpDuration;
+            }
+            else
             {
                 isJumping = false;
-                distancePercentage = jumpDistancePercentage; // Update the distance percentage after the jump
             }
         }
-        else
-        {
-            transform.position = currentPosition;
-        }
-
-        // Calculate the next position and rotation
-        Vector3 nextPosition = spline.EvaluatePosition(distancePercentage + 0.05f);
-        Vector3 direction = nextPosition - currentPosition;
-        transform.rotation = Quaternion.LookRotation(direction, transform.up);
     }
 }
