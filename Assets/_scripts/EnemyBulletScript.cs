@@ -10,7 +10,7 @@ public class EnemyBulletScript : MonoBehaviour
         {
             Debug.Log("Player got hit by projectile!");
         }
-        if (!other.CompareTag("Projectile") && !other.CompareTag("Enemy"))
+        if (!other.CompareTag("Projectile") && !other.CompareTag("Enemy") && !other.CompareTag("Torch"))
         {
             Destroy(gameObject);
         }

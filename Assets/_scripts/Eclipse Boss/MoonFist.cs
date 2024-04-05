@@ -1,17 +1,24 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Splines;
 
 public enum MoonFistState
 {
     Move,
     Charge,
     Shoot,
-    Stuck
+    Return,
+    Stuck,
+    Far
 }
 
 public class MoonFist : MonoBehaviour
 {
+    [SerializeField] SplineContainer spline;
+    float distancePercentage = 0f;
+    float splineLength;
+
     [Header("MoonFist Stats")]
     [SerializeField] float speed;
     [SerializeField] float smash_speed;
@@ -26,25 +33,28 @@ public class MoonFist : MonoBehaviour
     [Header("MoonFist Range")]
     [SerializeField] Transform targeter;
     [SerializeField] GameObject bullet;
+    [SerializeField] float max_distance;
     Renderer render;
     Transform player;
-    Vector3 initial_pos;
-    Vector3 target_pos;
-    Vector3 move_direction = new(1, 0, 0);
-    bool isSmash, isStuck, isMoving, isReturning, isShooting;
-    int shoot_count;
+    Vector3 initial_pos, target_pos;
+    float direction;
+    bool isSmash, isStuck, isMoving, isReturning, isShooting,isFallingDown;
+    int smash_count,shoot_count;
 
     private void Awake()
     {
-        isSmash = isStuck = isReturning = false;
-        isMoving = true;
-        shoot_count = 0;
         player = GameObject.Find("Player").GetComponent<Transform>();
         render = GetComponent<Renderer>();
     }
 
     private void Start()
     {
+        isSmash = isStuck = isReturning = isFallingDown = false;
+        isMoving = true;
+        shoot_count = 0;
+        smash_count = 0;
+        direction = 1;
+        splineLength = spline.CalculateLength();
         UpdateEnemyState(MoonFistState.Move);
         SetPositions();
     }
@@ -57,19 +67,23 @@ public class MoonFist : MonoBehaviour
             Move();
         if (isShooting)
             Shoot();
+        if (isFallingDown)
+            FallDown();
+        if (isReturning)
+            MoveBack();
     }
 
     private void UpdateEnemyState(MoonFistState enemyState)
     {
+        Debug.Log("MoonFist:" + enemyState);
         switch (enemyState)
         {
             case MoonFistState.Move:
-                Debug.Log("Moonfist: Started Moving");
+                isReturning = false;
                 SetPositions();
                 StartCoroutine(MoveState());
                 break;
             case MoonFistState.Charge:
-                Debug.Log("Moonfist: Started Moving");
                 StartCoroutine(ChargeState());
                 break;
             case MoonFistState.Shoot:
@@ -81,6 +95,14 @@ public class MoonFist : MonoBehaviour
                 shoot_count = 0;
                 StartCoroutine(GetStuck());
                 break;
+            case MoonFistState.Return:
+                isSmash = false;
+                isShooting = false;
+                isReturning = true;
+                break;
+            case MoonFistState.Far:
+                StartCoroutine(FarState());
+                break;
         }
     }
 
@@ -91,16 +113,22 @@ public class MoonFist : MonoBehaviour
         isMoving = true;
         yield return new WaitForSeconds(moving_time);
         isMoving = false;
-        UpdateEnemyState(MoonFistState.Charge);
+        direction *= -1;
+        SetPositions();
+        float distance = Vector3.Distance(transform.position, target_pos);
+        if (distance >= max_distance)
+            UpdateEnemyState(MoonFistState.Far);
+        else
+            UpdateEnemyState(MoonFistState.Charge);
     }
 
     private void Move()
     {
-        if (transform.position.x <= target_pos.x - 5)
-            move_direction.x = 1;
-        if (transform.position.x >= target_pos.x + 5)
-            move_direction.x = -1;
-        transform.position += speed * Time.deltaTime * move_direction;
+        float currentSpeed = Mathf.Clamp(speed * direction, -5, 5);
+        distancePercentage += currentSpeed * Time.deltaTime / splineLength;
+        distancePercentage = Mathf.Repeat(distancePercentage, 1f);
+        Vector3 currentPosition = spline.EvaluatePosition(distancePercentage);
+        transform.position = currentPosition;
     }
 
     #endregion
@@ -133,9 +161,40 @@ public class MoonFist : MonoBehaviour
 
     private void Shoot()
     {
+        SetPositions();
+        targeter.LookAt(target_pos);
+        Instantiate(bullet, transform.position, targeter.rotation);
+        targeter.LookAt(target_pos + new Vector3(0, 0, 5));
+        Instantiate(bullet, transform.position, targeter.rotation);
+        targeter.LookAt(target_pos + new Vector3(0, 0, -5));
         Instantiate(bullet, transform.position, targeter.rotation);
     }
     #endregion
+
+    IEnumerator FarState()
+    {
+        float time = charge_time / 3;
+        transform.localScale += Vector3.one;
+        yield return new WaitForSeconds(time);
+        transform.localScale -= Vector3.one;
+        yield return new WaitForSeconds(time);
+        transform.localScale += Vector3.one;
+        yield return new WaitForSeconds(time);
+        transform.localScale -= Vector3.one;
+        SetPositions();
+        transform.position = new Vector3(target_pos.x, transform.position.y, target_pos.z);
+        yield return new WaitForSeconds(.1f);
+        isFallingDown = true;
+        yield return new WaitForSeconds(.5f);
+        isFallingDown = false;
+        StartCoroutine(GetStuckMelee());
+    }
+
+    private void FallDown()
+    {
+        if (transform.position.y > target_pos.y)
+            transform.Translate(0, -10 * Time.deltaTime, 0);
+    }
 
     private void SetPositions()
     {
@@ -143,9 +202,17 @@ public class MoonFist : MonoBehaviour
         initial_pos = transform.position;
     }
 
+    private IEnumerator GetStuckMelee()
+    {
+        isStuck = true;
+        render.material = weak;
+        yield return new WaitForSeconds(stuck_time);
+        isStuck = false;
+        render.material = normal;
+        UpdateEnemyState(MoonFistState.Return);
+    }
     private IEnumerator GetStuck()
     {
-        Debug.Log("Sunfist: Stuck");
         isStuck = true;
         render.material = weak;
         yield return new WaitForSeconds(stuck_time);
@@ -153,4 +220,11 @@ public class MoonFist : MonoBehaviour
         render.material = normal;
         UpdateEnemyState(MoonFistState.Move);
     }
+    #region Return
+    private void MoveBack()
+    {
+        transform.position = Vector3.MoveTowards(transform.position, initial_pos, speed * Time.deltaTime);
+        if (Vector3.Distance(initial_pos, transform.position) <= .001f) UpdateEnemyState(MoonFistState.Move);
+    }
+    #endregion
 }
